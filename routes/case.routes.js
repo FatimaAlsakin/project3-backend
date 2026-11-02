@@ -1,9 +1,8 @@
 const router = require("express").Router();
-
-const bcrypt = require("bcrypt");
 const Case = require("../models/Case");
+const isAdmin = require("../middleware/isAdmin");
 
-router.post("/", async (req, res) => {
+router.post("/", isAdmin, async (req, res) => {
     try{
         const { title, description, location, incidentDate, difficulty, status  } = req.body;
         const newCase = await Case.create({
@@ -44,7 +43,7 @@ router.get("/:Cid", async (req, res) => {
     }
 })
 
-router.put("/:Cid", async (req, res) => {
+router.put("/:Cid", isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const updatedCase = await Case.findByIdAndUpdate(
@@ -57,7 +56,7 @@ router.put("/:Cid", async (req, res) => {
     }
 })
 
-router.delete("/:Cid", async (req, res) => {
+router.delete("/:Cid", isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const deletedCase = await Case.findByIdAndDelete(Cid);
