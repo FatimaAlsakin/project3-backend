@@ -44,10 +44,11 @@ router.get("/:Cid", async (req, res) => {
     try {
         const { Cid } = req.params;
         const foundCase = await Case.findById(Cid);
+        const suspects = await Suspect.find({ case: Cid });
         if (!foundCase) {
             return res.status(404).json({ message: "Case not found" });
         }
-        res.status(200).json(foundCase);
+        res.status(200).json({ case: foundCase, suspects: suspects });
     } catch (err) {
         console.log(err);
         res.status(500).json({ message: err.message });
@@ -96,15 +97,6 @@ router.post("/:Cid/suspects", isAdmin, async (req, res) => {
     }
 });
 
-router.get("/:Cid/suspects", async (req, res) => {
-    try {
-        const { Cid } = req.params;
-        const suspects = await Suspect.find({ case: Cid });
-        res.status(200).json(suspects);
-    } catch (err) {
-        console.log(err);
-    }   
-})
 
 router.put("/:Cid/suspects",isAdmin, async (req, res) => {
     try {
