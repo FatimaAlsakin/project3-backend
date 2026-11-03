@@ -9,6 +9,8 @@ const cors = require('cors')
 // Routes Import
 const authRoutes = require('./routes/auth.routes')
 const caseRoutes = require('./routes/case.routes')
+const teamRoutes = require("./routes/team.routes.js")
+const evidenceRoutes = require("./routes/evidence.routes.js")
 
 
 
@@ -27,6 +29,8 @@ app.use(morgan('dev'))
 // Routes
 app.use('/auth',authRoutes)
 app.use('/cases',caseRoutes)
+app.use("/teams", teamRoutes)
+app.use("/evidence", evidenceRoutes)
 
 
 // connect to database and listen on Port 3000
