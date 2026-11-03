@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 
 router.post("/sign-up", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, isAdmin } = req.body;
 
     // Validation
     if (!username || !password) return res.status(400).json({message: "Username and password are required.",});
@@ -16,6 +16,7 @@ router.post("/sign-up", async (req, res) => {
     const user = await User.create({
       username,
       hashedPassword: await bcrypt.hash(password, 12),
+      isAdmin: isAdmin 
     });
 
     const { _id, createdAt, updatedAt } = user;
@@ -66,7 +67,7 @@ router.post("/sign-in", async (req, res) => {
     }
 
     // Construct the payload
-    const payload = { username: user.username, _id: user._id };
+    const payload = { username: user.username, _id: user._id, isAdmin: user.isAdmin };
 
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {

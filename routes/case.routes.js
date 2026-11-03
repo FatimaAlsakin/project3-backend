@@ -1,18 +1,12 @@
 const router = require("express").Router();
 const Case = require("../models/Case");
 const isAdmin = require("../middleware/isAdmin");
+const verifyToken = require("../middleware/verifyToken");
 const Suspect = require("../models/Suspect");
 
-router.post("/", isAdmin, async (req, res) => {
+router.post("/", verifyToken, isAdmin, async (req, res) => {
     try{
         const { title, description, location, incidentDate, difficulty, status  } = req.body;
-        const suspects = await Suspect.Create({
-            name,
-            relation,
-            motive,
-            alibi,
-            case: newCase._id
-        });
 
         const newCase = await Case.create({
             title,
@@ -20,13 +14,19 @@ router.post("/", isAdmin, async (req, res) => {
             location,
             incidentDate,
             difficulty,
-            status,
-            solutionSuspect: suspects._id
+            status
         });
 
         res.status(201).json(newCase);
     } catch (err) {
-    console.log(err);
+        console.log(err);
+        if (err.name === "ValidationError") {
+            return res.status(400).json({ message: err.message });
+        }
+        if (err.code === 11000) {
+            return res.status(409).json({ message: "Case title already exists" });
+        }
+        res.status(500).json({ message: err.message });
     }
 })
 
@@ -55,7 +55,7 @@ router.get("/:Cid", async (req, res) => {
     }
 })
 
-router.put("/:Cid", isAdmin, async (req, res) => {
+router.put("/:Cid", verifyToken, isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const updatedCase = await Case.findByIdAndUpdate(
@@ -68,7 +68,7 @@ router.put("/:Cid", isAdmin, async (req, res) => {
     }
 })
 
-router.delete("/:Cid", isAdmin, async (req, res) => {
+router.delete("/:Cid", verifyToken, isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const deletedCase = await Case.findByIdAndDelete(Cid);
@@ -78,7 +78,7 @@ router.delete("/:Cid", isAdmin, async (req, res) => {
     }
 })
 
-router.post("/:Cid/suspects", isAdmin, async (req, res) => {
+router.post("/:Cid/suspects", verifyToken, isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const { name, relation, motive, alibi } = req.body;
@@ -98,7 +98,7 @@ router.post("/:Cid/suspects", isAdmin, async (req, res) => {
 });
 
 
-router.put("/:Cid/suspects",isAdmin, async (req, res) => {
+router.put("/:Cid/suspects", verifyToken, isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const suspects = await Suspect.findByIdAndUpdate(Cid, req.body, { new: true });
@@ -108,7 +108,7 @@ router.put("/:Cid/suspects",isAdmin, async (req, res) => {
     }   
 })
 
-router.delete("/:Cid/suspects",isAdmin, async (req, res) => {
+router.delete("/:Cid/suspects", verifyToken, isAdmin, async (req, res) => {
     try {
         const { Cid } = req.params;
         const suspects = await Suspect.findByIdAndDelete(Cid);

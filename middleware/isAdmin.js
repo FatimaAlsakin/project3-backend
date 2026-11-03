@@ -1,7 +1,7 @@
 const isAdmin = (req, res, next) => {
-    if (!req.user) return res.redirect("/auth/sign-in");
+    if (!req.user) return res.status(401).json({ message: "Not signed in" });
     if (req.user.isAdmin) return next();
-    res.redirect("/");
+    res.status(403).json({ message: "Admins only" });
 };
 
 module.exports = isAdmin;
