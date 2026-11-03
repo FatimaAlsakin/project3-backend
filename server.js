@@ -11,9 +11,8 @@ const authRoutes = require('./routes/auth.routes')
 const caseRoutes = require('./routes/case.routes')
 const teamRoutes = require("./routes/team.routes.js")
 const evidenceRoutes = require("./routes/evidence.routes.js")
-
-
-
+const noteRoutes=require("./routes/note.router.js")
+const sloveAttemptsRoutes= require("./routes/solve.routes.js")
 
 // Middleware
 app.use(
@@ -31,7 +30,8 @@ app.use('/auth',authRoutes)
 app.use('/cases',caseRoutes)
 app.use("/teams", teamRoutes)
 app.use("/evidence", evidenceRoutes)
-
+app.use("/note",noteRoutes)
+app.use("/solve",sloveAttemptsRoutes)
 
 // connect to database and listen on Port 3000
 async function startServer() {
