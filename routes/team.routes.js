@@ -15,6 +15,35 @@ router.get("/", verifyToken, async (req, res) => {
     }
 })
 
+//Current user team and members
+router.get("/my-team", verifyToken, async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user._id)
+
+        if (!currentUser.teamId) {
+            return res.status(404).json({
+                message: "You are not in a team" 
+            })
+        }
+
+        const myTeam = await Team.findById(currentUser.teamId).populate("createdBy", "username")
+
+        if (!myTeam) {
+            return res.status(404).json({
+                message: "Team not found" 
+            })
+        }
+        
+        const teamMembers = await User.find({ teamId: myTeam._id }).select("username")
+
+        res.json({ team: myTeam, members: teamMembers })
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Internal Server Error" })
+    }
+})
+
 //Create a new team
 router.post("/", verifyToken, async (req, res) => {
     try {
