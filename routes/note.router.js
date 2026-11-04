@@ -8,7 +8,7 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         const newNotes = await Notes.create({
             content: req.body.content,
             userId:req.user._id,
-            caseId:  req.user._id,
+            caseId:  req.params.cID,
         })
         res.status(201).json(newNotes)
     }catch(err){
@@ -16,6 +16,29 @@ router.post('/:cID',verifyToken, async (req,res)=>{
     }
 })
 
+
+
+router.get('/:cID', async (req,res)=>{
+    try{
+        // Logged in user is ALWAYS req.user
+        const allnotes = await Notes.find()
+        res.status(200).json(allnotes)
+    }catch(err){
+        console.log(err)
+    }
+})
+
+
+
+router.get('/:cID/:nId', verifyToken, async (req,res)=>{
+    try{
+        // Logged in user is ALWAYS req.user
+        const note = await Notes.findById(req.params.nId)
+        res.status(200).json(note)
+    }catch(err){
+        console.log(err)
+    }
+})
 
 
 router.put("/:nID",verifyToken,async (req,res)=>{
