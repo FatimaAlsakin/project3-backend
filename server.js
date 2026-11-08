@@ -33,6 +33,12 @@ app.use("/evidence", evidenceRoutes)
 app.use("/note",noteRoutes)
 app.use("/solve",sloveAttemptsRoutes)
 
+// Catch errors thrown by middleware (e.g. image uploads to Cloudinary) and send them as JSON
+app.use((err, req, res, next) => {
+    console.log(err)
+    res.status(err.http_code || err.status || 500).json({ message: err.message || "Image upload failed" })
+})
+
 // connect to database and listen on Port 3000
 async function startServer() {
     const PORT = process.env.PORT || 3000;

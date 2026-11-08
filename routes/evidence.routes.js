@@ -2,19 +2,25 @@ const router = require("express").Router()
 const Evidence = require("../models/Evidence")
 const verifyToken = require("../middleware/verifyToken")
 const isAdmin = require ("../middleware/isAdmin")
+const upload = require("../middleware/upload")
 
 
-//Add evidence to the case 
-router.post("/:cId", verifyToken, isAdmin, async (req, res) => {
+//Add evidence to the case
+router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
         const { label, title, type, details, foundAt, suspectId, isLocked } = req.body
+        const imageUrl = req.file ? req.file.path : req.body.imageUrl
+        if (!imageUrl) {
+            return res.status(400).json({ message: "Evidence image is required" })
+        }
         const newEvidence = new Evidence({
             label,
             title,
             type,
+            imageUrl,
             details,
             foundAt,
-            suspectId,
+            suspectId: suspectId || null,
             isLocked,
             caseId: req.params.cId
         })
@@ -29,12 +35,17 @@ router.post("/:cId", verifyToken, isAdmin, async (req, res) => {
 })
 
 // Edit evedence
-router.put("/:eId", verifyToken, isAdmin, async (req, res) => {
+router.put("/:eId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { label, title, type, details, foundAt, suspectId } = req.body
+        const { label, title, type, details, foundAt, suspectId, isLocked } = req.body
+        const update = { label, title, type, details, foundAt, suspectId: suspectId || null, isLocked }
+        // only replace the image if a new one was uploaded
+        if (req.file) {
+            update.imageUrl = req.file.path
+        }
         const updatedEvidence = await Evidence.findByIdAndUpdate(
             req.params.eId,
-            { label, title, type, details, foundAt, suspectId },
+            update,
             { new: true }
         )
         if (!updatedEvidence) {

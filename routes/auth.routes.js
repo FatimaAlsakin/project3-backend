@@ -78,6 +78,7 @@ router.post("/sign-in", async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
+        isAdmin: user.isAdmin,
       },
     });
   } catch (err) {

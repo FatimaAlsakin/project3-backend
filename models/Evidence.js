@@ -16,6 +16,11 @@ const evidenceSchema = new mongoose.Schema({
         enum: ['image'],
         required: true
     },
+    imageUrl: {
+        type: String,
+        required: true,
+        trim: true
+    },
     details: {
         type: String,
         required: true,

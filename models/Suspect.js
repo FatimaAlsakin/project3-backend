@@ -18,6 +18,10 @@ const suspectSchema = new mongoose.Schema(
         type: String,
         required: true
     },
+    imageUrl: {
+        type: String,
+        required: true
+    },
     case: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Case",
