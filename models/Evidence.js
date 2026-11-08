@@ -29,10 +29,6 @@ const evidenceSchema = new mongoose.Schema({
     foundAt: {
         type: String
     },
-    isLocked: {
-        type: Boolean,
-        default: false
-    },
     caseId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Case",

@@ -8,7 +8,7 @@ const upload = require("../middleware/upload")
 //Add evidence to the case
 router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { label, title, type, details, foundAt, suspectId, isLocked } = req.body
+        const { label, title, type, details, foundAt, suspectId } = req.body
         const imageUrl = req.file ? req.file.path : req.body.imageUrl
         if (!imageUrl) {
             return res.status(400).json({ message: "Evidence image is required" })
@@ -21,7 +21,6 @@ router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, r
             details,
             foundAt,
             suspectId: suspectId || null,
-            isLocked,
             caseId: req.params.cId
         })
         await newEvidence.save()
@@ -37,8 +36,8 @@ router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, r
 // Edit evedence
 router.put("/:eId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { label, title, type, details, foundAt, suspectId, isLocked } = req.body
-        const update = { label, title, type, details, foundAt, suspectId: suspectId || null, isLocked }
+        const { label, title, type, details, foundAt, suspectId } = req.body
+        const update = { label, title, type, details, foundAt, suspectId: suspectId || null }
         // only replace the image if a new one was uploaded
         if (req.file) {
             update.imageUrl = req.file.path
@@ -53,25 +52,6 @@ router.put("/:eId", verifyToken, isAdmin, upload.single('image'), async (req, re
         }
 
         return res.json(updatedEvidence)
-    }
-    catch (err) {
-        console.log(err)
-        return res.status(500).json({ message: "Internal Server Error" })
-    }
-})
-
-//Lock or unlock evidence
-router.put("/:eId/toggle-lock", verifyToken, isAdmin, async (req, res) => {
-    try {
-        const evidence = await Evidence.findById(req.params.eId)
-        if (!evidence) {
-            return res.status(404).json({ message: "Evidence not found" })
-        }
-
-        evidence.isLocked = !evidence.isLocked
-        await evidence.save()
-
-        return res.json(evidence)
     }
     catch (err) {
         console.log(err)
