@@ -33,8 +33,8 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         // Logged in user is ALWAYS req.user
         const newAttempt  = await solveAttempt.create({
             submitedBy: req.user._id,
-            susbectId:req.user._id,
-            caseId:  req.user._id,
+            susbectId: req.body.susbectId,
+            caseId:  req.params.cID,
             teamId: req.user._id , 
             isCorrect: req.body.isCorrect
          
