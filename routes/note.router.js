@@ -72,5 +72,15 @@ router.delete("/:nID", verifyToken,async (req,res)=>{
 })
 
 
+router.get('/:cID', verifyToken, async (req, res) => {
+    try {
+        const allnotes = await Notes.find({caseId: req.params.cID}).populate('userId')
+        res.status(200).json(allnotes);
+    } catch (err) {
+        console.log(err)
+    }
+});
+
+
 
 module.exports = router;
