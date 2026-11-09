@@ -18,6 +18,19 @@ const suspectSchema = new mongoose.Schema(
         type: String,
         required: true
     },
+    // body language shown after each answer (optional)
+    relationTell: {
+        type: String,
+        default: ""
+    },
+    motiveTell: {
+        type: String,
+        default: ""
+    },
+    alibiTell: {
+        type: String,
+        default: ""
+    },
     imageUrl: {
         type: String,
         required: true

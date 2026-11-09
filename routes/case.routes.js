@@ -88,7 +88,7 @@ router.delete("/:Cid", verifyToken, isAdmin, async (req, res) => {
 router.post("/:Cid/suspects", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
         const { Cid } = req.params;
-        const { name, relation, motive, alibi } = req.body;
+        const { name, relation, motive, alibi, relationTell, motiveTell, alibiTell } = req.body;
         if (!req.file) {
             return res.status(400).json({ message: "Suspect photo is required" });
         }
@@ -98,6 +98,9 @@ router.post("/:Cid/suspects", verifyToken, isAdmin, upload.single('image'), asyn
             relation,
             motive,
             alibi,
+            relationTell,
+            motiveTell,
+            alibiTell,
             imageUrl: req.file.path,
             case: Cid
         });
@@ -116,8 +119,8 @@ router.post("/:Cid/suspects", verifyToken, isAdmin, upload.single('image'), asyn
 router.put("/:Cid/suspects/:sId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
         const { Cid, sId } = req.params;
-        const { name, relation, motive, alibi } = req.body;
-        const update = { name, relation, motive, alibi };
+        const { name, relation, motive, alibi, relationTell, motiveTell, alibiTell } = req.body;
+        const update = { name, relation, motive, alibi, relationTell, motiveTell, alibiTell };
         // only replace the image if a new one was uploaded
         if (req.file) {
             update.imageUrl = req.file.path;
