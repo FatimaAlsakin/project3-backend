@@ -8,7 +8,7 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         const newNotes = await Notes.create({
             content: req.body.content,
             userId:req.user._id,
-            caseId:  req.user._id,
+            caseId:  req.params.cID,
         })
         res.status(201).json(newNotes)
     }catch(err){
@@ -47,6 +47,16 @@ router.delete("/:nID", verifyToken,async (req,res)=>{
         console.log(err);
     }
 })
+
+
+router.get('/:cID', verifyToken, async (req, res) => {
+    try {
+        const allnotes = await Notes.find({caseId: req.params.cID}).populate('userId')
+        res.status(200).json(allnotes);
+    } catch (err) {
+        console.log(err)
+    }
+});
 
 
 
