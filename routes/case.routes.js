@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
     }
 })
 
-router.get("/:Cid", async (req, res) => {
+router.get("/:Cid",verifyToken, async (req, res) => {
     try {
         const { Cid } = req.params;
         const foundCase = await Case.findById(Cid);
