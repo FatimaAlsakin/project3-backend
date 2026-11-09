@@ -8,7 +8,7 @@ const upload = require("../middleware/upload")
 //Add evidence to the case
 router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { label, title, type, details, foundAt, suspectId } = req.body
+        const { label, title, type, details, foundAt, suspectId, suspectResponse, responseTell } = req.body
         const imageUrl = req.file ? req.file.path : req.body.imageUrl
         if (!imageUrl) {
             return res.status(400).json({ message: "Evidence image is required" })
@@ -21,6 +21,8 @@ router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, r
             details,
             foundAt,
             suspectId: suspectId || null,
+            suspectResponse,
+            responseTell,
             caseId: req.params.cId
         })
         await newEvidence.save()
@@ -36,8 +38,8 @@ router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, r
 // Edit evedence
 router.put("/:eId", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { label, title, type, details, foundAt, suspectId } = req.body
-        const update = { label, title, type, details, foundAt, suspectId: suspectId || null }
+        const { label, title, type, details, foundAt, suspectId, suspectResponse, responseTell } = req.body
+        const update = { label, title, type, details, foundAt, suspectId: suspectId || null, suspectResponse, responseTell }
         // only replace the image if a new one was uploaded
         if (req.file) {
             update.imageUrl = req.file.path

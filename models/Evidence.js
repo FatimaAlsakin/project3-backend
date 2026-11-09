@@ -38,6 +38,16 @@ const evidenceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Suspect",
         default: null
+    },
+    // what the linked suspect says when asked about this evidence (optional)
+    suspectResponse: {
+        type: String,
+        default: ""
+    },
+    // their body language when answering (optional)
+    responseTell: {
+        type: String,
+        default: ""
     }
 
 })
