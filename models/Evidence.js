@@ -16,6 +16,11 @@ const evidenceSchema = new mongoose.Schema({
         enum: ['image'],
         required: true
     },
+    imageUrl: {
+        type: String,
+        required: true,
+        trim: true
+    },
     details: {
         type: String,
         required: true,
@@ -23,10 +28,6 @@ const evidenceSchema = new mongoose.Schema({
     },
     foundAt: {
         type: String
-    },
-    isLocked: {
-        type: Boolean,
-        default: false
     },
     caseId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -37,6 +38,16 @@ const evidenceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Suspect",
         default: null
+    },
+    // what the linked suspect says when asked about this evidence (optional)
+    suspectResponse: {
+        type: String,
+        default: ""
+    },
+    // their body language when answering (optional)
+    responseTell: {
+        type: String,
+        default: ""
     }
 
 })

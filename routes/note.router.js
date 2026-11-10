@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const Notes = require("../models/Note")
+const User = require("../models/User")
 const verifyToken = require("../middleware/verifyToken")
 
 router.post('/:cID',verifyToken, async (req,res)=>{
@@ -18,11 +19,17 @@ router.post('/:cID',verifyToken, async (req,res)=>{
 
 
 
-router.get('/:cID', async (req,res)=>{
+router.get('/:cID', verifyToken, async (req,res)=>{
     try{
-        // Logged in user is ALWAYS req.user
-        const allnotes = await Notes.find()
-        res.status(200).json(allnotes)
+        const currentUser = await User.findById(req.user._id)
+        let authorIds = [req.user._id]
+        if (currentUser?.teamId) {
+            const teamMembers = await User.find({ teamId: currentUser.teamId }).select('_id')
+            authorIds = teamMembers.map(member => member._id)
+        }
+        const allnotes = await Notes.find({caseId: req.params.cID, userId: { $in: authorIds }}).populate('userId', 'username')
+        res.status(200).json(allnotes);
+    
     }catch(err){
         console.log(err)
     }
@@ -70,17 +77,5 @@ router.delete("/:nID", verifyToken,async (req,res)=>{
         console.log(err);
     }
 })
-
-
-router.get('/:cID', verifyToken, async (req, res) => {
-    try {
-        const allnotes = await Notes.find({caseId: req.params.cID}).populate('userId')
-        res.status(200).json(allnotes);
-    } catch (err) {
-        console.log(err)
-    }
-});
-
-
 
 module.exports = router;
