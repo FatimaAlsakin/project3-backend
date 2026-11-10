@@ -4,7 +4,32 @@ const Case = require("../models/Case")
 const User = require("../models/User")
 const verifyToken = require("../middleware/verifyToken")
 
+async function myAttemptsFilter(userId) {
+    const currentUser = await User.findById(userId)
+    return currentUser?.teamId ? { teamId: currentUser.teamId } : { submitedBy: userId }
+}
 
+router.get('/solved', verifyToken, async (req, res) => {
+    try {
+        const filter = await myAttemptsFilter(req.user._id)
+        const solvedCaseIds = await solveAttempt.distinct('caseId', { ...filter, isCorrect: true })
+        res.status(200).json(solvedCaseIds)
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ message: err.message })
+    }
+})
+
+router.get('/:cID/status', verifyToken, async (req, res) => {
+    try {
+        const filter = await myAttemptsFilter(req.user._id)
+        const correctAttempt = await solveAttempt.findOne({ ...filter, caseId: req.params.cID, isCorrect: true })
+        res.status(200).json({ solved: Boolean(correctAttempt) })
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ message: err.message })
+    }
+})
 
 
 router.get('/', verifyToken,async (req,res)=>{
@@ -42,14 +67,19 @@ router.post('/:cID',verifyToken, async (req,res)=>{
             return res.status(404).json({ message: "Case not found" })
         }
 
-        // the server decides if the guess is right, so players can't fake it
+        const filter = await myAttemptsFilter(req.user._id)
+        const alreadySolved = await solveAttempt.findOne({ ...filter, caseId: req.params.cID, isCorrect: true })
+        if (alreadySolved) {
+            return res.status(400).json({ message: "Your team already solved this case" })
+        }
+
         const isCorrect = String(foundCase.solutionSuspect) === String(req.body.susbectId)
 
         const newAttempt  = await solveAttempt.create({
             submitedBy: req.user._id,
             susbectId: req.body.susbectId,
             caseId:  req.params.cID,
-            teamId: req.user.teamId,
+            teamId: filter.teamId || null,
             isCorrect
         })
         res.status(201).json(newAttempt)
