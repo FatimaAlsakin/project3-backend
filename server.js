@@ -14,6 +14,8 @@ const evidenceRoutes = require("./routes/evidence.routes.js")
 const noteRoutes=require("./routes/note.router.js")
 const sloveAttemptsRoutes= require("./routes/solve.routes.js")
 const chatRoutes = require("./routes/chat.routes.js")
+const boardRoutes = require("./routes/board.routes.js")
+const liveRoutes = require("./routes/live.routes.js")
 
 // Middleware
 app.use(
@@ -34,6 +36,8 @@ app.use("/evidence", evidenceRoutes)
 app.use("/note",noteRoutes)
 app.use("/solve",sloveAttemptsRoutes)
 app.use("/chat", chatRoutes)
+app.use("/board", boardRoutes)
+app.use("/live", liveRoutes)
 
 // Catch errors thrown by middleware (e.g. image uploads to Cloudinary) and send them as JSON
 app.use((err, req, res, next) => {
