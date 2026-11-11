@@ -8,6 +8,9 @@ const verifyToken = require("../middleware/verifyToken")
 router.get("/", verifyToken, async (req, res) => {
     try {
         const allTeams = await Team.find().populate("createdBy", "username");
+        for (const team of allTeams) {
+            team.totalMembers = await User.countDocuments({ teamId: team._id })
+        }
         res.json(allTeams);
     } catch (err) {
         console.error(err);
@@ -47,7 +50,7 @@ router.get("/my-team", verifyToken, async (req, res) => {
 //Create a new team
 router.post("/", verifyToken, async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, description, maxMembers } = req.body;
         const currentUser = await User.findById(req.user._id)
         if (currentUser.teamId) {
             return res.status(400).json({
@@ -62,6 +65,8 @@ router.post("/", verifyToken, async (req, res) => {
         }
         const createTeam = await Team.create({ 
             name, 
+            description,
+            maxMembers,
             createdBy: req.user._id 
         })
 
@@ -92,6 +97,10 @@ router.put("/:tId/join", verifyToken, async (req, res) => {
         const joinTeam = await Team.findById(req.params.tId)
         if (!joinTeam) {
             return res.status(404).json({ message: "Team not found" })
+        }
+        const totalMembers = await User.countDocuments({ teamId: joinTeam._id })
+        if (totalMembers >= joinTeam.maxMembers) {
+            return res.status(400).json({ message: "Team is full" })
         }
         const user = await User.findByIdAndUpdate(
             req.user._id,

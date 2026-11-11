@@ -7,6 +7,17 @@ const teamSchema = new mongoose.Schema({
         unique: true,
         trim: true
     }, 
+    description: {
+        type: String
+    },
+    totalMembers: {
+        type: Number,
+        default: 0
+    },
+    maxMembers: {
+        type: Number,
+        required: true
+    },
 
     createdBy:{
         type: mongoose.Schema.Types.ObjectId,
