@@ -3,6 +3,7 @@ const Notes = require("../models/Note")
 const User = require("../models/User")
 const Board = require("../models/Board")
 const verifyToken = require("../middleware/verifyToken")
+const { noteRoomFor } = require("../socket")
 
 router.post('/:cID',verifyToken, async (req,res)=>{
     try{
@@ -12,9 +13,15 @@ router.post('/:cID',verifyToken, async (req,res)=>{
             userId:req.user._id,
             caseId:  req.params.cID,
         })
+        await newNotes.populate('userId', 'username')
+
+        const io = req.app.get("io")
+        io.to(await noteRoomFor(req.user._id, req.params.cID)).emit("note:created", newNotes)
+
         res.status(201).json(newNotes)
     }catch(err){
         console.log(err)
+        res.status(500).json({ message: err.message })
     }
 })
 
@@ -52,8 +59,13 @@ router.get('/:cID/:nId', verifyToken, async (req,res)=>{
 router.put("/:nID",verifyToken,async (req,res)=>{
     try{
          const notesEdit = await Notes.findById(req.params.nID);
+         if (!notesEdit) return res.status(404).json({message:'Note not found'})
          if ( notesEdit.userId== req.user._id){
-        const updatedNotes = await Notes.findByIdAndUpdate(req.params.nID, req.body, {new:true})
+        const updatedNotes = await Notes.findByIdAndUpdate(req.params.nID, req.body, {new:true}).populate('userId', 'username')
+
+        const io = req.app.get("io")
+        io.to(await noteRoomFor(req.user._id, updatedNotes.caseId)).emit("note:updated", updatedNotes)
+
         res.json(updatedNotes)}
         else{
              return res.status(403).json({message:'You cannot update this Notes'})
@@ -61,13 +73,14 @@ router.put("/:nID",verifyToken,async (req,res)=>{
 
     }catch(err){
         console.log(err);
-
+        res.status(500).json({ message: err.message })
     }
 })
 
 router.delete("/:nID", verifyToken,async (req,res)=>{
      try{
  const foundNotes = await Notes.findById(req.params.nID);
+         if (!foundNotes) return res.status(404).json({message:'Note not found'})
          if ( foundNotes.userId== req.user._id) {
         const deletedNotes = await Notes.findByIdAndDelete(req.params.nID)
 
@@ -80,12 +93,16 @@ router.delete("/:nID", verifyToken,async (req,res)=>{
             }
         )
 
+        const io = req.app.get("io")
+        io.to(await noteRoomFor(req.user._id, deletedNotes.caseId)).emit("note:deleted", { _id: deletedNotes._id })
+
         res.json(deletedNotes)}
         else{
              return res.status(403).json({message:'You cannot delete this Notes'})
         }
     }catch(err){
         console.log(err);
+        res.status(500).json({ message: err.message })
     }
 })
 

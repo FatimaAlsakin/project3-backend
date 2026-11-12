@@ -2,6 +2,7 @@ const router = require("express").Router();
 const isInATeam = require("../middleware/isInATeam");
 const verifyToken = require("../middleware/verifyToken");
 const Chat = require("../models/Chat");
+const { roomFor } = require("../socket");
 
 router.post("/:cId", verifyToken, isInATeam, async (req, res) => {
     try {
@@ -15,6 +16,8 @@ router.post("/:cId", verifyToken, isInATeam, async (req, res) => {
             text: req.body.text.trim()
         });
         await newChat.populate("sender", "username");
+
+        req.app.get("io").to(roomFor(`team:${req.teamId}`, req.params.cId)).emit("chat:message", newChat);
 
         res.status(201).json(newChat);
     } catch (err) {

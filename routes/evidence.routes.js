@@ -26,6 +26,10 @@ router.post("/:cId", verifyToken, isAdmin, upload.single('image'), async (req, r
             caseId: req.params.cId
         })
         await newEvidence.save()
+
+        const io = req.app.get("io")
+        io.to(`case:${req.params.cId}`).emit("evidence:created", newEvidence)
+        
         return res.status(201).json(newEvidence)
 
     }

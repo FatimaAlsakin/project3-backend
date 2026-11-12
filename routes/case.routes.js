@@ -5,8 +5,20 @@ const verifyToken = require("../middleware/verifyToken");
 const Suspect = require("../models/Suspect");
 const Evidence = require("../models/Evidence");
 const upload = require("../middleware/upload");
+const jwt = require("jsonwebtoken");
 
-router.post("/", verifyToken, isAdmin, async (req, res) => {
+const PLAYER_STATUSES = ["open", "solved"];
+
+function isAdminRequest(req) {
+    try {
+        const token = req.headers.authorization?.split(" ")[1];
+        return Boolean(token && jwt.verify(token, process.env.JWT_SECRET).isAdmin);
+    } catch {
+        return false;
+    }
+}
+
+router.post("/", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try{
         const { title, description, location, incidentDate, difficulty, status  } = req.body;
 
@@ -16,7 +28,8 @@ router.post("/", verifyToken, isAdmin, async (req, res) => {
             location,
             incidentDate,
             difficulty,
-            status
+            status,
+            imageUrl: req.file ? req.file.path : undefined
         });
 
         res.status(201).json(newCase);
@@ -34,7 +47,8 @@ router.post("/", verifyToken, isAdmin, async (req, res) => {
 
 router.get("/", async (req, res) => {
     try {
-        const cases = await Case.find();
+        const filter = isAdminRequest(req) ? {} : { status: { $in: PLAYER_STATUSES } };
+        const cases = await Case.find(filter);
         res.status(200).json(cases);
     } catch (err) {
         console.log(err);
@@ -42,11 +56,13 @@ router.get("/", async (req, res) => {
     }
 })
 
-router.get("/:Cid",verifyToken, async (req, res) => {
+// public, like the cases list, so visitors can look at a case before signing in
+router.get("/:Cid", async (req, res) => {
     try {
         const { Cid } = req.params;
         const foundCase = await Case.findById(Cid);
-        if (!foundCase) {
+        // a draft or closed case doesn't exist as far as players can tell
+        if (!foundCase || (!isAdminRequest(req) && !PLAYER_STATUSES.includes(foundCase.status))) {
             return res.status(404).json({ message: "Case not found" });
         }
         const suspects = await Suspect.find({ case: Cid });
@@ -58,12 +74,19 @@ router.get("/:Cid",verifyToken, async (req, res) => {
     }
 })
 
-router.put("/:Cid", verifyToken, isAdmin, async (req, res) => {
+router.put("/:Cid", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try {
         const { Cid } = req.params;
+        const update = { ...req.body };
+        // form data sends "no solution suspect" as an empty string
+        if (update.solutionSuspect === '') update.solutionSuspect = null;
+        // only replace the picture if a new one was uploaded
+        delete update.imageUrl;
+        if (req.file) update.imageUrl = req.file.path;
+
         const updatedCase = await Case.findByIdAndUpdate(
-            Cid, 
-            req.body,
+            Cid,
+            update,
             { new: true })
         if (!updatedCase) {
             return res.status(404).json({ message: "Case not found" });
