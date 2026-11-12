@@ -66,6 +66,9 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         if (!foundCase) {
             return res.status(404).json({ message: "Case not found" })
         }
+        if (!req.user.isAdmin && !["open", "solved"].includes(foundCase.status)) {
+            return res.status(403).json({ message: "This case is not open for solving" })
+        }
 
         const filter = await myAttemptsFilter(req.user._id)
         const alreadySolved = await solveAttempt.findOne({ ...filter, caseId: req.params.cID, isCorrect: true })
