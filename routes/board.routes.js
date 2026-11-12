@@ -3,6 +3,11 @@ const mongoose = require("mongoose");
 const Board = require("../models/Board");
 const User = require("../models/User");
 const verifyToken = require("../middleware/verifyToken");
+const { roomFor } = require("../socket");
+
+function tellTeam(req, event, data) {
+    req.app.get("io").to(req.boardRoom).emit(event, data);
+}
 
 const isItemId = (id) => typeof id === "string" && /^[\w-]{1,64}$/.test(id);
 
@@ -17,6 +22,8 @@ async function boardOwner(req, res, next) {
         req.boardFilter = currentUser.teamId
             ? { caseId: req.params.cId, teamId: currentUser.teamId }
             : { caseId: req.params.cId, userId: currentUser._id };
+        const group = currentUser.teamId ? `team:${currentUser.teamId}` : `user:${currentUser._id}`;
+        req.boardRoom = roomFor(group, req.params.cId);
         next();
     } catch (err) {
         console.log(err);
@@ -52,6 +59,7 @@ router.put("/:cId/positions/:itemId", verifyToken, boardOwner, async (req, res) 
 
         await findOrCreateBoard(req.boardFilter);
         await Board.updateOne(req.boardFilter, { $set: { [`positions.${itemId}`]: { x, y } } });
+        tellTeam(req, "board:position", { itemId, x, y });
         res.status(200).json({ itemId, x, y });
     } catch (err) {
         console.log(err);
@@ -67,11 +75,11 @@ router.post("/:cId/strings", verifyToken, boardOwner, async (req, res) => {
         }
 
         await findOrCreateBoard(req.boardFilter);
-        // only add it if this pair isn't tied yet (in either direction)
         await Board.updateOne(
             { ...req.boardFilter, strings: { $not: { $elemMatch: { $or: [{ a, b }, { a: b, b: a }] } } } },
             { $push: { strings: { a, b } } }
         );
+        tellTeam(req, "board:stringAdded", { a, b });
         res.status(201).json({ a, b });
     } catch (err) {
         console.log(err);
@@ -82,6 +90,7 @@ router.post("/:cId/strings", verifyToken, boardOwner, async (req, res) => {
 router.delete("/:cId/strings", verifyToken, boardOwner, async (req, res) => {
     try {
         await Board.updateOne(req.boardFilter, { $set: { strings: [] } });
+        tellTeam(req, "board:stringsCleared", {});
         res.status(200).json({ message: "Strings cleared" });
     } catch (err) {
         console.log(err);
@@ -95,6 +104,7 @@ router.delete("/:cId/strings/:a/:b", verifyToken, boardOwner, async (req, res) =
         await Board.updateOne(req.boardFilter, {
             $pull: { strings: { $or: [{ a, b }, { a: b, b: a }] } }
         });
+        tellTeam(req, "board:stringRemoved", { a, b });
         res.status(200).json({ a, b });
     } catch (err) {
         console.log(err);

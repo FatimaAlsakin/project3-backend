@@ -6,6 +6,27 @@ const dotenv = require("dotenv").config() //this allows me to use my .env values
 const morgan = require('morgan')
 const cors = require('cors')
 
+const http = require("http");
+const { Server } = require("socket.io");
+const registerSocketHandlers = require("./socket");
+const allowedOrigins = [process.env.CLIENT_URL || 'http://localhost:5173'];
+ 
+// Create HTTP server
+const httpServer = http.createServer(app);
+
+// Attach Socket.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: false,
+  },
+});
+
 // Routes Import
 const authRoutes = require('./routes/auth.routes')
 const caseRoutes = require('./routes/case.routes')
@@ -26,7 +47,11 @@ app.use(
 app.use(express.json())
 app.use(morgan('dev'))
 
+// Make io available inside controllers
+app.set("io", io);
 
+// Register socket events
+registerSocketHandlers(io);
 
 // Routes
 app.use('/auth',authRoutes)
@@ -50,7 +75,7 @@ async function startServer() {
     const PORT = process.env.PORT || 3000;
     await connectToDB();
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
         console.log(`App is running on port ${PORT}`);
     });
 }
