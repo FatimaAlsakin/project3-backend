@@ -2,6 +2,7 @@ const router = require("express").Router()
 const Team = require("../models/Team")
 const User = require("../models/User")
 const verifyToken = require("../middleware/verifyToken")
+const solveAttempt = require("../models/SolveAttempt")
 
 
 //List all teams
@@ -132,5 +133,24 @@ router.put("/leave", verifyToken, async (req, res) => {
         res.status(500).json({ message: "Internal Server Error" })
     }
 })
+
+
+// returns the team and all cases for that team
+router.get("/dashboard", verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).populate('teamId')
+        console.log(user)
+        const team = user.teamId
+        const cases = await solveAttempt.find({teamId: team?._id}).populate('caseId')
+
+        res.json({team, cases})
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Internal Server Error" })
+    }
+})
+
+
 
 module.exports = router;
