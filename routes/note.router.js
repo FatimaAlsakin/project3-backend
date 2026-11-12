@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const Notes = require("../models/Note")
 const User = require("../models/User")
+const Board = require("../models/Board")
 const verifyToken = require("../middleware/verifyToken")
 
 router.post('/:cID',verifyToken, async (req,res)=>{
@@ -69,6 +70,16 @@ router.delete("/:nID", verifyToken,async (req,res)=>{
  const foundNotes = await Notes.findById(req.params.nID);
          if ( foundNotes.userId== req.user._id) {
         const deletedNotes = await Notes.findByIdAndDelete(req.params.nID)
+
+        const noteId = String(req.params.nID)
+        await Board.updateMany(
+            { caseId: foundNotes.caseId },
+            {
+                $unset: { [`positions.${noteId}`]: "" },
+                $pull: { strings: { $or: [{ a: noteId }, { b: noteId }] } }
+            }
+        )
+
         res.json(deletedNotes)}
         else{
              return res.status(403).json({message:'You cannot delete this Notes'})
