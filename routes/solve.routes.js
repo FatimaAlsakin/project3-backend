@@ -1,12 +1,30 @@
 const router = require("express").Router();
+const mongoose = require("mongoose")
 const solveAttempt= require("../models/SolveAttempt")
 const Case = require("../models/Case")
+const Suspect = require("../models/Suspect")
 const User = require("../models/User")
 const verifyToken = require("../middleware/verifyToken")
 
 async function myAttemptsFilter(userId) {
     const currentUser = await User.findById(userId)
     return currentUser?.teamId ? { teamId: currentUser.teamId } : { submitedBy: userId }
+}
+
+function maxAttemptsFor(suspectCount) {
+    return Math.max(1, Math.ceil(suspectCount / 2))
+}
+
+async function caseProgress(filter, foundCase) {
+    const maxAttempts = maxAttemptsFor(await Suspect.countDocuments({ case: foundCase._id }))
+    const [solvedAttempt, wrongAttempts] = await Promise.all([
+        solveAttempt.exists({ ...filter, caseId: foundCase._id, isCorrect: true }),
+        solveAttempt.countDocuments({ ...filter, caseId: foundCase._id, isCorrect: false })
+    ])
+    const solved = Boolean(solvedAttempt)
+    const attemptsLeft = Math.max(0, maxAttempts - wrongAttempts)
+    const failed = !solved && attemptsLeft === 0
+    return { solved, failed, attemptsLeft, maxAttempts }
 }
 
 router.get('/solved', verifyToken, async (req, res) => {
@@ -20,11 +38,41 @@ router.get('/solved', verifyToken, async (req, res) => {
     }
 })
 
-router.get('/:cID/status', verifyToken, async (req, res) => {
+router.get('/failed', verifyToken, async (req, res) => {
     try {
         const filter = await myAttemptsFilter(req.user._id)
-        const correctAttempt = await solveAttempt.findOne({ ...filter, caseId: req.params.cID, isCorrect: true })
-        res.status(200).json({ solved: Boolean(correctAttempt) })
+        const [wrongCounts, solvedCaseIds] = await Promise.all([
+            solveAttempt.aggregate([
+                { $match: { ...filter, ...(filter.submitedBy && { submitedBy: new mongoose.Types.ObjectId(String(filter.submitedBy)) }), isCorrect: false } },
+                { $group: { _id: '$caseId', wrong: { $sum: 1 } } }
+            ]),
+            solveAttempt.distinct('caseId', { ...filter, isCorrect: true })
+        ])
+        const solved = new Set(solvedCaseIds.map(String))
+        const suspectCounts = await Suspect.aggregate([
+            { $match: { case: { $in: wrongCounts.map((c) => c._id) } } },
+            { $group: { _id: '$case', count: { $sum: 1 } } }
+        ])
+        const maxById = new Map(suspectCounts.map((c) => [String(c._id), maxAttemptsFor(c.count)]))
+
+        const failedCaseIds = wrongCounts
+            .filter(({ _id, wrong }) => !solved.has(String(_id)) && wrong >= (maxById.get(String(_id)) || 1))
+            .map(({ _id }) => _id)
+        res.status(200).json(failedCaseIds)
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ message: err.message })
+    }
+})
+
+router.get('/:cID/status', verifyToken, async (req, res) => {
+    try {
+        const foundCase = await Case.findById(req.params.cID).select('_id')
+        if (!foundCase) {
+            return res.status(404).json({ message: "Case not found" })
+        }
+        const filter = await myAttemptsFilter(req.user._id)
+        res.status(200).json(await caseProgress(filter, foundCase))
     } catch (err) {
         console.log(err)
         res.status(500).json({ message: err.message })
@@ -34,11 +82,12 @@ router.get('/:cID/status', verifyToken, async (req, res) => {
 
 router.get('/', verifyToken,async (req,res)=>{
     try{
-        // Logged in user is ALWAYS req.user
-        const allAttepms = await solveAttempt.find({ teamId: req.user.teamId})
+        const filter = await myAttemptsFilter(req.user._id)
+        const allAttepms = await solveAttempt.find(filter)
         res.status(200).json(allAttepms)
     }catch(err){
         console.log(err)
+        res.status(500).json({ message: err.message })
     }
 })
 
@@ -51,6 +100,7 @@ router.get('/:cID', verifyToken, async (req,res)=>{
         res.status(200).json(viewAttemps)
     }catch(err){
         console.log(err)
+        res.status(500).json({ message: err.message })
     }
 })
 
@@ -71,9 +121,12 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         }
 
         const filter = await myAttemptsFilter(req.user._id)
-        const alreadySolved = await solveAttempt.findOne({ ...filter, caseId: req.params.cID, isCorrect: true })
-        if (alreadySolved) {
+        const progress = await caseProgress(filter, foundCase)
+        if (progress.solved) {
             return res.status(400).json({ message: "Your team already solved this case" })
+        }
+        if (progress.failed) {
+            return res.status(403).json({ message: "No attempts left for this case" })
         }
 
         const isCorrect = String(foundCase.solutionSuspect) === String(req.body.susbectId)
@@ -85,9 +138,11 @@ router.post('/:cID',verifyToken, async (req,res)=>{
             teamId: filter.teamId || null,
             isCorrect
         })
-        res.status(201).json(newAttempt)
+        const attemptsLeft = isCorrect ? progress.attemptsLeft : progress.attemptsLeft - 1
+        res.status(201).json({ ...newAttempt.toObject(), attemptsLeft, maxAttempts: progress.maxAttempts })
     }catch(err){
         console.log(err)
+        res.status(500).json({ message: err.message })
     }
 })
 
