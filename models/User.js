@@ -21,7 +21,13 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Team",
       default: null
-    }
+    },
+    teamHistory: [{
+      team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", required: true },
+      joinedAt: { type: Date, default: Date.now },
+      leftAt: { type: Date, default: null },
+      _id: false
+    }]
   },
   { timestamps: true },
 );
