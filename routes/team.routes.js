@@ -3,7 +3,11 @@ const Team = require("../models/Team")
 const User = require("../models/User")
 const verifyToken = require("../middleware/verifyToken")
 const solveAttempt = require("../models/SolveAttempt")
+const Suspect = require("../models/Suspect")
 
+function maxAttemptsFor(suspectCount) {
+    return Math.max(1, Math.ceil(suspectCount / 2))
+}
 
 //List all teams
 router.get("/", verifyToken, async (req, res) => {
@@ -174,6 +178,41 @@ async function casesSolvedDuring(teamId, windows) {
     return [...solved.values()].sort((a, b) => b.solvedAt - a.solvedAt)
 }
 
+// a case is closed for a team once its wrong guesses reach the case's attempt limit without solving it
+// it counts for this membership if the guess that closed it happened while the user was in the team
+async function casesClosedDuring(teamId, windows) {
+    const solvedIds = new Set((await solveAttempt.distinct("caseId", { teamId, isCorrect: true })).map(String))
+    const wrongAttempts = await solveAttempt.find({ teamId, isCorrect: false })
+        .sort({ _id: 1 })
+        .populate("caseId", "title description difficulty imageUrl")
+        .populate("submitedBy", "username")
+
+    const wrongByCase = new Map()
+    for (const attempt of wrongAttempts) {
+        if (!attempt.caseId || solvedIds.has(String(attempt.caseId._id))) continue
+        const key = String(attempt.caseId._id)
+        if (!wrongByCase.has(key)) wrongByCase.set(key, [])
+        wrongByCase.get(key).push(attempt)
+    }
+
+    const closed = []
+    for (const [caseId, attempts] of wrongByCase) {
+        const maxAttempts = maxAttemptsFor(await Suspect.countDocuments({ case: caseId }))
+        if (attempts.length < maxAttempts) continue
+        const closingAttempt = attempts[maxAttempts - 1]
+        const at = attemptTime(closingAttempt)
+        const duringMembership = windows.some(({ from, to }) => (!from || at >= from) && (!to || at <= to))
+        if (duringMembership) {
+            closed.push({
+                case: closingAttempt.caseId,
+                closedBy: closingAttempt.submitedBy?.username || null,
+                closedAt: at
+            })
+        }
+    }
+    return closed.sort((a, b) => b.closedAt - a.closedAt)
+}
+
 router.get("/dashboard", verifyToken, async (req, res) => {
     try {
         const user = await User.findById(req.user._id)
@@ -210,13 +249,14 @@ router.get("/dashboard", verifyToken, async (req, res) => {
         for (const [teamId, windows] of windowsByTeam) {
             const team = await Team.findById(teamId).select("name description maxMembers")
             const solvedCases = await casesSolvedDuring(teamId, windows)
+            const failedCases = await casesClosedDuring(teamId, windows)
 
             if (teamId === currentKey) {
                 const members = await User.find({ teamId }).select("username")
-                currentTeam = { team, members, solvedCases }
+                currentTeam = { team, members, solvedCases, failedCases }
             } else {
                 const leftAt = windows.reduce((latest, w) => (w.to && (!latest || w.to > latest) ? w.to : latest), null)
-                pastTeams.push({ team, leftAt, solvedCases })
+                pastTeams.push({ team, leftAt, solvedCases, failedCases })
             }
         }
         pastTeams.sort((a, b) => (b.leftAt || 0) - (a.leftAt || 0))
