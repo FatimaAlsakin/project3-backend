@@ -24,7 +24,13 @@ async function caseProgress(filter, foundCase) {
     const solved = Boolean(solvedAttempt)
     const attemptsLeft = Math.max(0, maxAttempts - wrongAttempts)
     const failed = !solved && attemptsLeft === 0
-    return { solved, failed, attemptsLeft, maxAttempts }
+    const answer = solved || failed ? await caseAnswer(foundCase) : null
+    return { solved, failed, attemptsLeft, maxAttempts, answer }
+}
+
+async function caseAnswer(foundCase) {
+    if (!foundCase.solutionSuspect) return null
+    return Suspect.findById(foundCase.solutionSuspect).select('name imageUrl')
 }
 
 router.get('/solved', verifyToken, async (req, res) => {
@@ -49,6 +55,7 @@ router.get('/failed', verifyToken, async (req, res) => {
             solveAttempt.distinct('caseId', { ...filter, isCorrect: true })
         ])
         const solved = new Set(solvedCaseIds.map(String))
+        const existing = new Set((await Case.distinct('_id', { _id: { $in: wrongCounts.map((c) => c._id) } })).map(String))
         const suspectCounts = await Suspect.aggregate([
             { $match: { case: { $in: wrongCounts.map((c) => c._id) } } },
             { $group: { _id: '$case', count: { $sum: 1 } } }
@@ -56,7 +63,7 @@ router.get('/failed', verifyToken, async (req, res) => {
         const maxById = new Map(suspectCounts.map((c) => [String(c._id), maxAttemptsFor(c.count)]))
 
         const failedCaseIds = wrongCounts
-            .filter(({ _id, wrong }) => !solved.has(String(_id)) && wrong >= (maxById.get(String(_id)) || 1))
+            .filter(({ _id, wrong }) => existing.has(String(_id)) && !solved.has(String(_id)) && wrong >= (maxById.get(String(_id)) || 1))
             .map(({ _id }) => _id)
         res.status(200).json(failedCaseIds)
     } catch (err) {
@@ -67,7 +74,7 @@ router.get('/failed', verifyToken, async (req, res) => {
 
 router.get('/:cID/status', verifyToken, async (req, res) => {
     try {
-        const foundCase = await Case.findById(req.params.cID).select('_id')
+        const foundCase = await Case.findById(req.params.cID).select('solutionSuspect')
         if (!foundCase) {
             return res.status(404).json({ message: "Case not found" })
         }
@@ -139,7 +146,8 @@ router.post('/:cID',verifyToken, async (req,res)=>{
             isCorrect
         })
         const attemptsLeft = isCorrect ? progress.attemptsLeft : progress.attemptsLeft - 1
-        res.status(201).json({ ...newAttempt.toObject(), attemptsLeft, maxAttempts: progress.maxAttempts })
+        const answer = isCorrect || attemptsLeft === 0 ? await caseAnswer(foundCase) : null
+        res.status(201).json({ ...newAttempt.toObject(), attemptsLeft, maxAttempts: progress.maxAttempts, answer })
     }catch(err){
         console.log(err)
         res.status(500).json({ message: err.message })
