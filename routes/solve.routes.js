@@ -124,7 +124,7 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         if (!foundCase) {
             return res.status(404).json({ message: "Case not found" })
         }
-        if (!req.user.isAdmin && !["open", "solved"].includes(foundCase.status)) {
+        if (!req.user.isAdmin && foundCase.status !== "open") {
             return res.status(403).json({ message: "This case is not open for solving" })
         }
 

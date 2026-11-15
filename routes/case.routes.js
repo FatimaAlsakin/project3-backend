@@ -7,7 +7,7 @@ const Evidence = require("../models/Evidence");
 const upload = require("../middleware/upload");
 const jwt = require("jsonwebtoken");
 
-const PLAYER_STATUSES = ["open", "solved"];
+const PLAYER_STATUSES = ["open"];
 
 function isAdminRequest(req) {
     try {
@@ -18,18 +18,39 @@ function isAdminRequest(req) {
     }
 }
 
-router.post("/", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
+// the case picture, the victim's photo and each witness photo (witnessImage_0, witnessImage_1, ...) come in the same form
+const caseImages = upload.any();
+
+const uploadedPath = (req, field) => req.files?.find(file => file.fieldname === field)?.path;
+
+// witnesses arrive as a JSON array, or from the form as witnesses[0][name], ...
+// the form also sends witnessCount so removing every witness still clears the list
+function witnessesFrom(req) {
+    const { witnesses, witnessCount } = req.body;
+    if (!witnesses) return witnessCount === '0' || witnessCount === 0 ? [] : undefined;
+    const list = Array.isArray(witnesses) ? witnesses : Object.values(witnesses);
+    return list.map((witness, index) => ({
+        ...witness,
+        // a new upload replaces the photo, otherwise the saved one is kept
+        imageUrl: uploadedPath(req, `witnessImage_${index}`) || witness.imageUrl || undefined,
+    }));
+}
+
+router.post("/", verifyToken, isAdmin, caseImages, async (req, res) => {
     try{
-        const { title, description, location, incidentDate, difficulty, status  } = req.body;
+        const { title, description, overview, victim, location, incidentDate, difficulty, status  } = req.body;
 
         const newCase = await Case.create({
             title,
             description,
+            overview,
+            victim: { ...victim, imageUrl: uploadedPath(req, 'victimImage') },
+            witnesses: witnessesFrom(req),
             location,
             incidentDate,
             difficulty,
             status,
-            imageUrl: req.file ? req.file.path : undefined
+            imageUrl: uploadedPath(req, 'image')
         });
 
         res.status(201).json(newCase);
@@ -74,15 +95,27 @@ router.get("/:Cid", async (req, res) => {
     }
 })
 
-router.put("/:Cid", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
+router.put("/:Cid", verifyToken, isAdmin, caseImages, async (req, res) => {
     try {
         const { Cid } = req.params;
-        const update = { ...req.body };
+        const { victim, witnesses, witnessCount, ...update } = req.body;
+        const witnessList = witnessesFrom(req);
+        if (witnessList) update.witnesses = witnessList;
         // form data sends "no solution suspect" as an empty string
         if (update.solutionSuspect === '') update.solutionSuspect = null;
-        // only replace the picture if a new one was uploaded
+        // only replace the pictures if new ones were uploaded
         delete update.imageUrl;
-        if (req.file) update.imageUrl = req.file.path;
+        const caseImage = uploadedPath(req, 'image');
+        if (caseImage) update.imageUrl = caseImage;
+
+        // set the victim field by field so the saved photo isn't wiped by an edit without one
+        if (victim) {
+            Object.entries(victim).forEach(([key, value]) => {
+                if (key !== 'imageUrl') update[`victim.${key}`] = value;
+            });
+        }
+        const victimImage = uploadedPath(req, 'victimImage');
+        if (victimImage) update['victim.imageUrl'] = victimImage;
 
         const updatedCase = await Case.findByIdAndUpdate(
             Cid,
