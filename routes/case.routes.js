@@ -7,7 +7,7 @@ const Evidence = require("../models/Evidence");
 const upload = require("../middleware/upload");
 const jwt = require("jsonwebtoken");
 
-const PLAYER_STATUSES = ["open", "solved"];
+const PLAYER_STATUSES = ["open"];
 
 function isAdminRequest(req) {
     try {

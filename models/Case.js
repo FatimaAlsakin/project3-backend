@@ -26,7 +26,7 @@ const caseSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["draft", "open", "solved", "closed"],
+      enum: ["draft", "open", "closed"],
       default: "draft",
     },
     solutionSuspect: {
