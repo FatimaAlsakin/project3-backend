@@ -17,15 +17,16 @@ function maxAttemptsFor(suspectCount) {
 
 async function caseProgress(filter, foundCase) {
     const maxAttempts = maxAttemptsFor(await Suspect.countDocuments({ case: foundCase._id }))
-    const [solvedAttempt, wrongAttempts] = await Promise.all([
+    const [solvedAttempt, wrongAttempts, accusedSuspects] = await Promise.all([
         solveAttempt.exists({ ...filter, caseId: foundCase._id, isCorrect: true }),
-        solveAttempt.countDocuments({ ...filter, caseId: foundCase._id, isCorrect: false })
+        solveAttempt.countDocuments({ ...filter, caseId: foundCase._id, isCorrect: false }),
+        solveAttempt.distinct('susbectId', { ...filter, caseId: foundCase._id, isCorrect: false })
     ])
     const solved = Boolean(solvedAttempt)
     const attemptsLeft = Math.max(0, maxAttempts - wrongAttempts)
     const failed = !solved && attemptsLeft === 0
     const answer = solved || failed ? await caseAnswer(foundCase) : null
-    return { solved, failed, attemptsLeft, maxAttempts, answer }
+    return { solved, failed, attemptsLeft, maxAttempts, answer, accusedSuspects: accusedSuspects.map(String) }
 }
 
 async function caseAnswer(foundCase) {
@@ -135,6 +136,9 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         if (progress.failed) {
             return res.status(403).json({ message: "No attempts left for this case" })
         }
+        if (progress.accusedSuspects.includes(String(req.body.susbectId))) {
+            return res.status(400).json({ message: "Your team already accused this suspect. Pick someone else." })
+        }
 
         const isCorrect = String(foundCase.solutionSuspect) === String(req.body.susbectId)
 
@@ -147,7 +151,10 @@ router.post('/:cID',verifyToken, async (req,res)=>{
         })
         const attemptsLeft = isCorrect ? progress.attemptsLeft : progress.attemptsLeft - 1
         const answer = isCorrect || attemptsLeft === 0 ? await caseAnswer(foundCase) : null
-        res.status(201).json({ ...newAttempt.toObject(), attemptsLeft, maxAttempts: progress.maxAttempts, answer })
+        const accusedSuspects = isCorrect
+            ? progress.accusedSuspects
+            : [...progress.accusedSuspects, String(req.body.susbectId)]
+        res.status(201).json({ ...newAttempt.toObject(), attemptsLeft, maxAttempts: progress.maxAttempts, answer, accusedSuspects })
     }catch(err){
         console.log(err)
         res.status(500).json({ message: err.message })
