@@ -18,13 +18,23 @@ function isAdminRequest(req) {
     }
 }
 
-// the case picture and the victim's photo come in the same form
-const caseImages = upload.fields([
-    { name: 'image', maxCount: 1 },
-    { name: 'victimImage', maxCount: 1 },
-]);
+// the case picture, the victim's photo and each witness photo (witnessImage_0, witnessImage_1, ...) come in the same form
+const caseImages = upload.any();
 
-const uploadedPath = (req, field) => req.files?.[field]?.[0]?.path;
+const uploadedPath = (req, field) => req.files?.find(file => file.fieldname === field)?.path;
+
+// witnesses arrive as a JSON array, or from the form as witnesses[0][name], ...
+// the form also sends witnessCount so removing every witness still clears the list
+function witnessesFrom(req) {
+    const { witnesses, witnessCount } = req.body;
+    if (!witnesses) return witnessCount === '0' || witnessCount === 0 ? [] : undefined;
+    const list = Array.isArray(witnesses) ? witnesses : Object.values(witnesses);
+    return list.map((witness, index) => ({
+        ...witness,
+        // a new upload replaces the photo, otherwise the saved one is kept
+        imageUrl: uploadedPath(req, `witnessImage_${index}`) || witness.imageUrl || undefined,
+    }));
+}
 
 router.post("/", verifyToken, isAdmin, caseImages, async (req, res) => {
     try{
@@ -35,6 +45,7 @@ router.post("/", verifyToken, isAdmin, caseImages, async (req, res) => {
             description,
             overview,
             victim: { ...victim, imageUrl: uploadedPath(req, 'victimImage') },
+            witnesses: witnessesFrom(req),
             location,
             incidentDate,
             difficulty,
@@ -87,7 +98,9 @@ router.get("/:Cid", async (req, res) => {
 router.put("/:Cid", verifyToken, isAdmin, caseImages, async (req, res) => {
     try {
         const { Cid } = req.params;
-        const { victim, ...update } = req.body;
+        const { victim, witnesses, witnessCount, ...update } = req.body;
+        const witnessList = witnessesFrom(req);
+        if (witnessList) update.witnesses = witnessList;
         // form data sends "no solution suspect" as an empty string
         if (update.solutionSuspect === '') update.solutionSuspect = null;
         // only replace the pictures if new ones were uploaded

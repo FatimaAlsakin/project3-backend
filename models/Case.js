@@ -24,6 +24,13 @@ const caseSchema = new mongoose.Schema(
         background: { type: String },
         imageUrl: { type: String },
     },
+    witnesses: [{
+        name: { type: String, required: true },
+        age: { type: Number, min: 0 },
+        role: { type: String },
+        statement: { type: String },
+        imageUrl: { type: String },
+    }],
     location: {
         type: String,
         required: true,
