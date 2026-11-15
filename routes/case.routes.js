@@ -18,19 +18,28 @@ function isAdminRequest(req) {
     }
 }
 
-router.post("/", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
+// the case picture and the victim's photo come in the same form
+const caseImages = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'victimImage', maxCount: 1 },
+]);
+
+const uploadedPath = (req, field) => req.files?.[field]?.[0]?.path;
+
+router.post("/", verifyToken, isAdmin, caseImages, async (req, res) => {
     try{
-        const { title, description, overview, location, incidentDate, difficulty, status  } = req.body;
+        const { title, description, overview, victim, location, incidentDate, difficulty, status  } = req.body;
 
         const newCase = await Case.create({
             title,
             description,
             overview,
+            victim: { ...victim, imageUrl: uploadedPath(req, 'victimImage') },
             location,
             incidentDate,
             difficulty,
             status,
-            imageUrl: req.file ? req.file.path : undefined
+            imageUrl: uploadedPath(req, 'image')
         });
 
         res.status(201).json(newCase);
@@ -75,15 +84,25 @@ router.get("/:Cid", async (req, res) => {
     }
 })
 
-router.put("/:Cid", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
+router.put("/:Cid", verifyToken, isAdmin, caseImages, async (req, res) => {
     try {
         const { Cid } = req.params;
-        const update = { ...req.body };
+        const { victim, ...update } = req.body;
         // form data sends "no solution suspect" as an empty string
         if (update.solutionSuspect === '') update.solutionSuspect = null;
-        // only replace the picture if a new one was uploaded
+        // only replace the pictures if new ones were uploaded
         delete update.imageUrl;
-        if (req.file) update.imageUrl = req.file.path;
+        const caseImage = uploadedPath(req, 'image');
+        if (caseImage) update.imageUrl = caseImage;
+
+        // set the victim field by field so the saved photo isn't wiped by an edit without one
+        if (victim) {
+            Object.entries(victim).forEach(([key, value]) => {
+                if (key !== 'imageUrl') update[`victim.${key}`] = value;
+            });
+        }
+        const victimImage = uploadedPath(req, 'victimImage');
+        if (victimImage) update['victim.imageUrl'] = victimImage;
 
         const updatedCase = await Case.findByIdAndUpdate(
             Cid,

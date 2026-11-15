@@ -14,6 +14,16 @@ const caseSchema = new mongoose.Schema(
     overview: {
         type: String,
     },
+    victim: {
+        name: { type: String },
+        age: { type: Number, min: 0 },
+        occupation: { type: String },
+        maritalStatus: { type: String },
+        knownFor: { type: String },
+        personality: { type: String },
+        background: { type: String },
+        imageUrl: { type: String },
+    },
     location: {
         type: String,
         required: true,
