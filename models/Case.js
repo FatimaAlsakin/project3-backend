@@ -11,6 +11,9 @@ const caseSchema = new mongoose.Schema(
         type: String,
         required: true,
     },
+    overview: {
+        type: String,
+    },
     location: {
         type: String,
         required: true,

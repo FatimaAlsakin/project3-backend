@@ -20,11 +20,12 @@ function isAdminRequest(req) {
 
 router.post("/", verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     try{
-        const { title, description, location, incidentDate, difficulty, status  } = req.body;
+        const { title, description, overview, location, incidentDate, difficulty, status  } = req.body;
 
         const newCase = await Case.create({
             title,
             description,
+            overview,
             location,
             incidentDate,
             difficulty,
