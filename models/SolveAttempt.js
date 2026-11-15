@@ -7,7 +7,7 @@ ref: 'User'
 } , 
 susbectId:{
     type:mongoose.Schema.Types.ObjectId, 
-    ref:"Susbect"
+    ref:"Suspect"
 } , 
 caseId:{
     type:mongoose.Schema.Types.ObjectId,

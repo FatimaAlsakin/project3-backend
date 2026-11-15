@@ -74,7 +74,10 @@ router.post("/", verifyToken, async (req, res) => {
 
         await User.findByIdAndUpdate(
             req.user._id,
-            { teamId: createTeam._id },
+            {
+                teamId: createTeam._id,
+                $push: { teamHistory: { team: createTeam._id, joinedAt: new Date() } }
+            },
             { new: true }
         )
 
@@ -105,7 +108,10 @@ router.put("/:tId/join", verifyToken, async (req, res) => {
         }
         const user = await User.findByIdAndUpdate(
             req.user._id,
-            { teamId: joinTeam._id },
+            {
+                teamId: joinTeam._id,
+                $push: { teamHistory: { team: joinTeam._id, joinedAt: new Date() } }
+            },
             { new: true }
         )
 
@@ -121,11 +127,19 @@ router.put("/:tId/join", verifyToken, async (req, res) => {
 //Leave a team
 router.put("/leave", verifyToken, async (req, res) => {
     try {
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { teamId: null },
-            { new: true }
-        )
+        const currentUser = await User.findById(req.user._id)
+        if (currentUser.teamId) {
+            const openEntry = currentUser.teamHistory.find((entry) =>
+                String(entry.team) === String(currentUser.teamId) && !entry.leftAt
+            )
+            if (openEntry) {
+                openEntry.leftAt = new Date()
+            } else {
+                currentUser.teamHistory.push({ team: currentUser.teamId, joinedAt: null, leftAt: new Date() })
+            }
+        }
+        currentUser.teamId = null
+        const user = await currentUser.save()
         res.json(user)
 
     } catch (err) {
@@ -135,15 +149,79 @@ router.put("/leave", verifyToken, async (req, res) => {
 })
 
 
-// returns the team and all cases for that team
+function attemptTime(attempt) {
+    return attempt._id.getTimestamp()
+}
+
+async function casesSolvedDuring(teamId, windows) {
+    const correctAttempts = await solveAttempt.find({ teamId, isCorrect: true })
+        .populate("caseId", "title description difficulty imageUrl")
+        .populate("submitedBy", "username")
+
+    const solved = new Map()
+    for (const attempt of correctAttempts) {
+        if (!attempt.caseId) continue
+        const at = attemptTime(attempt)
+        const duringMembership = windows.some(({ from, to }) => (!from || at >= from) && (!to || at <= to))
+        if (duringMembership && !solved.has(String(attempt.caseId._id))) {
+            solved.set(String(attempt.caseId._id), {
+                case: attempt.caseId,
+                solvedBy: attempt.submitedBy?.username || null,
+                solvedAt: at
+            })
+        }
+    }
+    return [...solved.values()].sort((a, b) => b.solvedAt - a.solvedAt)
+}
+
 router.get("/dashboard", verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).populate('teamId')
-        console.log(user)
-        const team = user.teamId
-        const cases = await solveAttempt.find({teamId: team?._id}).populate('caseId')
+        const user = await User.findById(req.user._id)
 
-        res.json({team, cases})
+        const windowsByTeam = new Map()
+        function addWindow(teamId, from, to) {
+            const key = String(teamId)
+            if (!windowsByTeam.has(key)) windowsByTeam.set(key, [])
+            windowsByTeam.get(key).push({ from, to })
+        }
+
+        for (const entry of user.teamHistory) {
+            addWindow(entry.team, entry.joinedAt, entry.leftAt)
+        }
+
+        const currentKey = user.teamId ? String(user.teamId) : null
+        if (currentKey && !user.teamHistory.some((entry) => String(entry.team) === currentKey && !entry.leftAt)) {
+            addWindow(user.teamId, null, null)
+        }
+
+        const ownAttempts = await solveAttempt.find({ submitedBy: user._id, teamId: { $ne: null } }).select("teamId")
+        const untracked = new Map()
+        for (const attempt of ownAttempts) {
+            const key = String(attempt.teamId)
+            if (windowsByTeam.has(key)) continue
+            const at = attemptTime(attempt)
+            const range = untracked.get(key) || { from: at, to: at }
+            untracked.set(key, { from: at < range.from ? at : range.from, to: at > range.to ? at : range.to })
+        }
+        for (const [teamId, range] of untracked) addWindow(teamId, range.from, range.to)
+
+        let currentTeam = null
+        const pastTeams = []
+        for (const [teamId, windows] of windowsByTeam) {
+            const team = await Team.findById(teamId).select("name description maxMembers")
+            const solvedCases = await casesSolvedDuring(teamId, windows)
+
+            if (teamId === currentKey) {
+                const members = await User.find({ teamId }).select("username")
+                currentTeam = { team, members, solvedCases }
+            } else {
+                const leftAt = windows.reduce((latest, w) => (w.to && (!latest || w.to > latest) ? w.to : latest), null)
+                pastTeams.push({ team, leftAt, solvedCases })
+            }
+        }
+        pastTeams.sort((a, b) => (b.leftAt || 0) - (a.leftAt || 0))
+
+        res.json({ currentTeam, pastTeams })
 
     } catch (err) {
         console.error(err);
