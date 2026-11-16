@@ -9,7 +9,10 @@ const cors = require('cors')
 const http = require("http");
 const { Server } = require("socket.io");
 const registerSocketHandlers = require("./socket");
-const allowedOrigins = [process.env.CLIENT_URL || 'http://localhost:5173'];
+// CLIENT_URL can be a comma-separated list, e.g. "https://casebook.netlify.app,http://localhost:5173"
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://casebook.netlify.app')
+  .split(',')
+  .map((url) => url.trim().replace(/\/$/, ''));
  
 // Create HTTP server
 const httpServer = http.createServer(app);
@@ -41,7 +44,7 @@ const liveRoutes = require("./routes/live.routes.js")
 // Middleware
 app.use(
     cors({
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
+        origin: allowedOrigins,
     })
 );
 app.use(express.json())
