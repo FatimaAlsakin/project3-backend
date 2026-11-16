@@ -9,8 +9,8 @@ const cors = require('cors')
 const http = require("http");
 const { Server } = require("socket.io");
 const registerSocketHandlers = require("./socket");
-// CLIENT_URL can be a comma-separated list, e.g. "https://casebook.netlify.app,http://localhost:5173"
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://casebook.netlify.app')
+// CLIENT_URL can be a comma-separated list, e.g. "https://casesbook.netlify.app,http://localhost:5173"
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://casesbook.netlify.app')
   .split(',')
   .map((url) => url.trim().replace(/\/$/, ''));
  
