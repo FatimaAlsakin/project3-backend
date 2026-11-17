@@ -10,7 +10,8 @@ async function connectToDB(){ //connection to the database
         console.log(`Connected to Database: ${connection.connection.name}`);
     }
     catch(error){
-        console.log("Error Occured",error)
+        console.error("Failed to connect to MongoDB:", error.message)
+        process.exit(1) // crash so the deploy fails loudly instead of returning 500s
     }
 }
 
